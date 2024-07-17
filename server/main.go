@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"log"
+  "log"
 	"net"
-	"net/http"
-	"net/url"
+  "net/http"
 	"os"
 	"io"
+  "io/ioutil"
 
+	"golang.org/x/net/proxy"
 	"github.com/joho/godotenv"
 )
 
@@ -16,50 +17,44 @@ import (
 func init() {
 	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
-}
+     log.Fatalf("Error loading .env file: %v", err)
+   }
+} 
 
 
-// Create a request using proxy
+// Create a requst using proxy
 func ProxyRequest(resource string) (string, error) {
+  auth := proxy.Auth{
+    User: os.Getenv("PROXY_USERNAME"),
+    Password: os.Getenv("PROXY_PASSWORD"),
+  }
+  dialer, err := proxy.SOCKS5("tcp", os.Getenv("PROXY_ADDRESS"), &auth, nil)
+  if err != nil {
+    log.Fatal(err)
+  }
 
-    proxyStr := os.Getenv("PROXY_URL")
-    proxyURL, err := url.Parse(proxyStr)
-	
-    if err != nil {
-        fmt.Println("Error parsing proxy URL:", err)
-        return "", err
-    }
+  client := &http.Client{
+    Transport: &http.Transport{
+      Dial: dialer.Dial,
+    },
+  }
 
-    client := &http.Client{
-        Transport: &http.Transport{
-            Proxy: http.ProxyURL(proxyURL),
-        },
-    }
-
-    fmt.Println("\nTrying to make request")
-    resp, err := client.Get(resource)
-
-    if err != nil {
-        fmt.Println("Error making request:", err)
-        return "", err
-    }
-
-    defer resp.Body.Close()
-
-    if resp != nil {
-        fmt.Println("Response Status:", resp.Status)
-    }
-
-	fmt.Print("\nGot access to: ", resource)
-    return "You got access to resource", nil
+  r, err := client.Get(resource)
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer r.Body.Close()
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    log.Fatal(err)
+  }
+  fmt.Println(string(body))
+  return "you got access", nil
 }
-
 
 // Entry point for server side
 func main() {
-	port := ":"+os.Getenv("SERVER_PORT")
+    port := ":"+os.Getenv("SERVER_PORT")
     listener, err := net.Listen("tcp", port)
 
     if err != nil {
