@@ -1,4 +1,4 @@
 Steps:
-- Create a proxy
-- Create a tun
+- Create a proxy (done)
+- Create a tun (done +-)
 - Create an encrypting
